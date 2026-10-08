@@ -1,1 +1,429 @@
-__PLACEHOLDER__
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111713">
+  <title>Fieldnote — Stopwatch</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #111713;
+      --line: #343d34;
+      --muted: #879187;
+      --paper: #f1f0e8;
+      --acid: #cbf36a;
+      --orange: #fa805c;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px 22px;
+      display: grid;
+      place-items: center;
+      color: var(--paper);
+      font-family: var(--sans);
+      background-color: var(--ink);
+      background-image:
+        linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px),
+        radial-gradient(ellipse at 48% 40%, #263027 0, #111713 62%);
+      background-size: 36px 36px, 36px 36px, auto;
+    }
+    button { font: inherit; }
+
+    .console {
+      width: min(900px, 100%);
+      overflow: hidden;
+      border: 1px solid #394238;
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(32,40,33,.98), rgba(22,28,23,.98));
+      box-shadow: 0 32px 90px rgba(0,0,0,.53), inset 0 1px rgba(255,255,255,.045);
+      animation: arrive .65s ease both;
+    }
+    @keyframes arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    .topbar {
+      min-height: 78px;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 28px; height: 28px;
+      display: grid; place-items: center;
+      border: 1px solid #65715f; border-radius: 50%;
+      color: var(--acid); font: 15px var(--mono);
+    }
+    .brand-name { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+    .brand-name span { color: var(--muted); font-weight: 500; }
+    .session {
+      display: flex; align-items: center; gap: 9px;
+      color: var(--muted); font: 10px var(--mono);
+      letter-spacing: .12em; text-transform: uppercase;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #697469; box-shadow: 0 0 0 4px rgba(105,116,105,.11); }
+    .session.is-running { color: var(--acid); }
+    .session.is-running .status-dot { background: var(--acid); box-shadow: 0 0 12px rgba(203,243,106,.53); animation: pulse 1.6s infinite; }
+    @keyframes pulse { 50% { opacity: .45; } }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, .85fr); min-height: 500px; }
+    .timer-side { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 42px 38px 34px; }
+    .section-label { align-self: flex-start; color: var(--muted); font: 10px var(--mono); letter-spacing: .17em; text-transform: uppercase; }
+
+    .dial {
+      position: relative;
+      width: min(272px, 70vw);
+      aspect-ratio: 1;
+      margin: 19px 0 23px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, #202820 0 61%, transparent 61.5%),
+        conic-gradient(from 0deg, rgba(255,255,255,.03), transparent 25%, rgba(255,255,255,.03) 50%, transparent 75%, rgba(255,255,255,.03));
+      box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 18px 50px rgba(0,0,0,.2), inset 0 0 0 10px #171d18;
+    }
+    .dial::before {
+      content: "";
+      position: absolute; inset: 11px;
+      border-radius: 50%;
+      background: repeating-conic-gradient(from -1deg, #707b70 0deg 1deg, transparent 1deg 6deg);
+      -webkit-mask: radial-gradient(transparent 0 78%, #000 78.5% 81%, transparent 81.5%);
+      mask: radial-gradient(transparent 0 78%, #000 78.5% 81%, transparent 81.5%);
+      opacity: .7;
+    }
+    .dial svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+    .dial-track, .dial-progress { fill: none; stroke-width: 2; }
+    .dial-track { stroke: rgba(255,255,255,.04); }
+    .dial-progress { stroke: var(--acid); stroke-linecap: round; stroke-dasharray: 816.8; stroke-dashoffset: 816.8; filter: drop-shadow(0 0 5px rgba(203,243,106,.53)); }
+    .dial-center { text-align: center; transform: translateY(-2px); }
+
+    .readout {
+      display: flex; align-items: baseline; justify-content: center; white-space: nowrap;
+      font: 500 clamp(43px, 8vw, 66px)/1 var(--mono);
+      letter-spacing: -.085em;
+      font-variant-numeric: tabular-nums;
+    }
+    .fraction { margin-left: 3px; color: var(--acid); font-size: .48em; letter-spacing: -.04em; }
+    .timer-caption { margin-top: 12px; color: var(--muted); font: 9px var(--mono); letter-spacing: .2em; text-transform: uppercase; }
+
+    .controls { width: min(390px, 100%); display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 9px; }
+    .control {
+      min-height: 48px; padding: 0 12px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      color: var(--paper); background: rgba(255,255,255,.02);
+      border: 1px solid var(--line); border-radius: 8px;
+      font-size: 11px; font-weight: 650; letter-spacing: .04em;
+      cursor: pointer;
+      transition: transform .12s ease, background .18s ease, border-color .18s ease, color .18s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .control:hover:not(:disabled) { background: rgba(255,255,255,.05); border-color: #65715f; }
+    .control:active:not(:disabled) { transform: scale(.97); }
+    .control:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+    .control:disabled { cursor: not-allowed; opacity: .37; }
+    .control svg { width: 13px; height: 13px; fill: currentColor; }
+    #startPause.start { color: var(--ink); background: var(--acid); border-color: var(--acid); }
+    #startPause.start:hover { background: #dcff91; border-color: #dcff91; }
+    #startPause.pause { color: #20150f; background: var(--orange); border-color: var(--orange); }
+    #startPause.pause:hover { background: #ff9c7e; border-color: #ff9c7e; }
+    .shortcut-note { margin: 18px 0 0; color: #737d73; font-size: 10px; }
+    kbd { padding: 2px 5px; border: 1px solid #414a40; border-radius: 4px; color: #aab2a7; font: 9px var(--mono); }
+
+    .laps-side { display: flex; flex-direction: column; padding: 31px 26px 24px; border-left: 1px solid var(--line); background: rgba(16,21,16,.22); }
+    .laps-heading { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .laps-heading h2 { margin: 0; font-size: 13px; font-weight: 650; }
+    .lap-count { color: var(--muted); font: 10px var(--mono); }
+    .lap-columns, .lap-row { display: grid; grid-template-columns: 48px 1fr 1fr; gap: 8px; align-items: center; }
+    .lap-columns { padding: 14px 2px 9px; color: #788277; font: 9px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .lap-columns span:not(:first-child), .lap-row span:not(:first-child) { text-align: right; }
+    .laps-list { min-height: 110px; max-height: 306px; overflow-y: auto; scrollbar-color: #485347 transparent; scrollbar-width: thin; }
+    .empty { min-height: 130px; display: grid; place-content: center; text-align: center; color: #778176; }
+    .empty-mark { margin-bottom: 10px; color: #697468; font: 20px var(--mono); }
+    .empty p { margin: 0; font-size: 11px; }
+    .lap-row { padding: 13px 2px; border-bottom: 1px solid rgba(255,255,255,.045); font: 11px var(--mono); font-variant-numeric: tabular-nums; animation: lap-in .22s ease both; }
+    @keyframes lap-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .lap-row .index { color: var(--muted); }
+    .lap-row .split { color: var(--paper); }
+    .lap-row .total { color: #aab3a7; }
+    .laps-footer { margin-top: auto; padding-top: 16px; display: flex; justify-content: space-between; color: #778176; font: 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .laps-footer strong { color: var(--acid); font-weight: 500; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 680px) {
+      body { padding: 18px 12px; }
+      .console { border-radius: 14px; }
+      .topbar { min-height: 66px; padding: 0 19px; }
+      .workspace { grid-template-columns: 1fr; }
+      .timer-side { padding: 28px 22px 25px; }
+      .section-label { align-self: center; }
+      .dial { width: min(242px, 66vw); margin: 15px 0 20px; }
+      .laps-side { min-height: 260px; padding: 24px 22px 20px; border-top: 1px solid var(--line); border-left: 0; }
+      .laps-list { max-height: 210px; }
+      .laps-footer { margin-top: 14px; }
+    }
+    @media (max-width: 390px) {
+      .brand-name { font-size: 10px; }
+      .session { font-size: 9px; }
+      .timer-side { padding-left: 16px; padding-right: 16px; }
+      .control { gap: 5px; padding: 0 7px; font-size: 10px; }
+      .laps-side { padding-left: 17px; padding-right: 17px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="console" aria-label="Stopwatch">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">f</span>
+        <div class="brand-name">Fieldnote <span>/ timepiece 01</span></div>
+      </div>
+      <div class="session" id="sessionState">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="stateText">Ready</span>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <section class="timer-side" aria-label="Timer controls">
+        <div class="section-label">Elapsed time <span aria-hidden="true">—</span> 00:00:00</div>
+
+        <div class="dial" aria-hidden="true">
+          <svg viewBox="0 0 272 272">
+            <circle class="dial-track" cx="136" cy="136" r="130"/>
+            <circle class="dial-progress" id="dialProgress" cx="136" cy="136" r="130"/>
+          </svg>
+          <div class="dial-center">
+            <div class="readout" role="timer" aria-label="00 minutes, 00 seconds, 00 hundredths">
+              <span id="main">00:00</span><span class="fraction" id="fraction">.00</span>
+            </div>
+            <div class="timer-caption">min : sec · 1/100</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="control start" id="startPause" type="button" aria-label="Start stopwatch">
+            <svg id="startIcon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.8c0-.6.7-1 1.2-.7l8 5.2a.8.8 0 0 1 0 1.4l-8 5.2c-.5.3-1.2-.1-1.2-.7z"/></svg>
+            <span id="startLabel">Start</span>
+          </button>
+          <button class="control" id="lap" type="button" disabled>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1a7 7 0 1 0 7 7h-1.8A5.2 5.2 0 1 1 8 2.8zm-.9 2.1h1.8v4.5l3.2 1.9-.9 1.5-4.1-2.5z"/></svg>
+            Lap
+          </button>
+          <button class="control" id="reset" type="button" disabled>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 4.4A6 6 0 1 1 2 8H.2a7.8 7.8 0 1 0 1.6-4.8L0 1.5v5h5z"/></svg>
+            Reset
+          </button>
+        </div>
+
+        <p class="shortcut-note"><kbd>SPACE</kbd> start / pause &nbsp; <kbd>L</kbd> lap &nbsp; <kbd>R</kbd> reset</p>
+        <span class="sr-only" id="announcer" aria-live="polite"></span>
+      </section>
+
+      <section class="laps-side" aria-labelledby="lapsTitle">
+        <div class="laps-heading">
+          <h2 id="lapsTitle">Lap times</h2>
+          <span class="lap-count" id="lapCount">00 laps</span>
+        </div>
+        <div class="lap-columns" aria-hidden="true"><span>No.</span><span>Split</span><span>Total</span></div>
+        <div class="laps-list" id="lapsList">
+          <div class="empty" id="emptyState">
+            <span class="empty-mark" aria-hidden="true">— —</span>
+            <p>Your splits will appear here.</p>
+          </div>
+        </div>
+        <footer class="laps-footer"><span>Precision timing</span><strong>1 / 100 sec</strong></footer>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const mainEl = document.getElementById("main");
+      const fractionEl = document.getElementById("fraction");
+      const readout = document.querySelector('[role="timer"]');
+      const startPauseBtn = document.getElementById("startPause");
+      const startLabel = document.getElementById("startLabel");
+      const startIcon = document.getElementById("startIcon");
+      const lapBtn = document.getElementById("lap");
+      const resetBtn = document.getElementById("reset");
+      const lapsList = document.getElementById("lapsList");
+      const emptyState = document.getElementById("emptyState");
+      const lapCount = document.getElementById("lapCount");
+      const sessionState = document.getElementById("sessionState");
+      const stateText = document.getElementById("stateText");
+      const announcer = document.getElementById("announcer");
+      const dialProgress = document.getElementById("dialProgress");
+
+      const CIRCUMFERENCE = 2 * Math.PI * 130;
+      const PLAY_ICON = '<path d="M4 2.8c0-.6.7-1 1.2-.7l8 5.2a.8.8 0 0 1 0 1.4l-8 5.2c-.5.3-1.2-.1-1.2-.7z"/>';
+      const PAUSE_ICON = '<path d="M3 2.5h3.5v11H3zm6.5 0H13v11H9.5z"/>';
+
+      let running = false;
+      let elapsed = 0;
+      let startedAt = 0;
+      let frameId = null;
+      let laps = [];
+      let lastPaintedCentisecond = -1;
+
+      const pad = (n) => String(n).padStart(2, "0");
+      const currentElapsed = () => running ? elapsed + performance.now() - startedAt : elapsed;
+
+      function format(ms) {
+        const centiseconds = Math.floor(ms / 10);
+        const totalSeconds = Math.floor(centiseconds / 100);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor(totalSeconds / 60) % 60;
+        const seconds = totalSeconds % 60;
+        const head = hours
+          ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+          : `${pad(Math.floor(totalSeconds / 60))}:${pad(seconds)}`;
+        return { head, fraction: pad(centiseconds % 100) };
+      }
+
+      const clock = (ms) => {
+        const parts = format(ms);
+        return parts.head + "." + parts.fraction;
+      };
+
+      function render() {
+        const ms = currentElapsed();
+        const centiseconds = Math.floor(ms / 10);
+        if (centiseconds !== lastPaintedCentisecond) {
+          const parts = format(ms);
+          mainEl.textContent = parts.head;
+          fractionEl.textContent = "." + parts.fraction;
+          readout.setAttribute("aria-label", `${parts.head} and ${parts.fraction} hundredths`);
+          lastPaintedCentisecond = centiseconds;
+        }
+        const progress = (ms % 60000) / 60000;
+        dialProgress.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - progress));
+      }
+
+      function tick() {
+        render();
+        frameId = requestAnimationFrame(tick);
+      }
+
+      function setState(label, isRunning) {
+        stateText.textContent = label;
+        sessionState.classList.toggle("is-running", isRunning);
+        announcer.textContent = `Stopwatch ${label.toLowerCase()}.`;
+      }
+
+      function setPrimaryButton(label, mode, ariaLabel) {
+        startLabel.textContent = label;
+        startPauseBtn.className = "control " + mode;
+        startPauseBtn.setAttribute("aria-label", ariaLabel);
+        startIcon.innerHTML = mode === "pause" ? PAUSE_ICON : PLAY_ICON;
+      }
+
+      function start() {
+        if (running) return;
+        running = true;
+        startedAt = performance.now();
+        setPrimaryButton("Pause", "pause", "Pause stopwatch");
+        resetBtn.disabled = false;
+        lapBtn.disabled = false;
+        setState("Running", true);
+        frameId = requestAnimationFrame(tick);
+      }
+
+      function pause() {
+        if (!running) return;
+        elapsed = currentElapsed();
+        running = false;
+        cancelAnimationFrame(frameId);
+        frameId = null;
+        setPrimaryButton("Resume", "start", "Resume stopwatch");
+        lapBtn.disabled = true;
+        setState("Paused", false);
+        render();
+      }
+
+      function toggle() { running ? pause() : start(); }
+
+      function reset() {
+        running = false;
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        frameId = null;
+        elapsed = 0;
+        laps = [];
+        lastPaintedCentisecond = -1;
+        setPrimaryButton("Start", "start", "Start stopwatch");
+        resetBtn.disabled = true;
+        lapBtn.disabled = true;
+        lapCount.textContent = "00 laps";
+        lapsList.replaceChildren(emptyState);
+        setState("Ready", false);
+        render();
+      }
+
+      function addCell(row, className, text) {
+        const cell = document.createElement("span");
+        cell.className = className;
+        cell.textContent = text;
+        row.append(cell);
+      }
+
+      function recordLap() {
+        if (!running) return;
+        const total = currentElapsed();
+        const previous = laps.length ? laps[laps.length - 1].total : 0;
+        const split = total - previous;
+        laps.push({ total, split });
+
+        emptyState.remove();
+        const row = document.createElement("div");
+        row.className = "lap-row";
+        row.setAttribute("role", "listitem");
+        addCell(row, "index", pad(laps.length));
+        addCell(row, "split", clock(split));
+        addCell(row, "total", clock(total));
+        lapsList.prepend(row);
+
+        lapCount.textContent = `${pad(laps.length)} ${laps.length === 1 ? "lap" : "laps"}`;
+        announcer.textContent = `Lap ${laps.length}: ${clock(split)}.`;
+      }
+
+      function onKeydown(event) {
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.target.closest("button, input, textarea, select, a, [contenteditable='true']")) return;
+        const key = event.key.toLowerCase();
+        if (key === " " || event.code === "Space") {
+          event.preventDefault();
+          toggle();
+        } else if (key === "l") {
+          recordLap();
+        } else if (key === "r") {
+          reset();
+        }
+      }
+
+      startPauseBtn.addEventListener("click", toggle);
+      lapBtn.addEventListener("click", recordLap);
+      resetBtn.addEventListener("click", reset);
+      document.addEventListener("keydown", onKeydown);
+      render();
+    })();
+  </script>
+</body>
+</html>
